@@ -46,7 +46,7 @@ TOOLS = [
     }
 ]
 
-SYSTEM_PROMPT = """You are an adaptive learning assistant that uses assessment-first pedagogy. Your approach:
+SYSTEM_PROMPT_LEARNING = """You are an adaptive learning assistant that uses assessment-first pedagogy. Your approach:
 
 1. ASSESS BEFORE TEACHING: When a learner asks about a topic, first use get_assessment_item to check their current understanding. This helps you tailor your explanation to their level.
 
@@ -70,6 +70,8 @@ SYSTEM_PROMPT = """You are an adaptive learning assistant that uses assessment-f
 6. Be encouraging but honest. Acknowledge mistakes as learning opportunities.
 
 7. Keep explanations concise but thorough. Use examples and analogies."""
+
+SYSTEM_PROMPT_NORMAL = """You are Claude, an AI assistant made by Anthropic. You are helpful, harmless, and honest. Keep your responses clear and concise."""
 
 
 def format_mcq_block(item: Item) -> str:
@@ -128,7 +130,7 @@ def process_tool_call(tool_name: str, tool_input: dict, user_id: str) -> str:
     return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
 
-async def chat_stream(messages: list[dict], user_id: str) -> AsyncGenerator[str, None]:
+async def chat_stream(messages: list[dict], user_id: str, learning_mode: bool = True) -> AsyncGenerator[str, None]:
     """Stream a chat response, handling tool calls."""
     # Convert messages to Claude format
     claude_messages = [
@@ -136,15 +138,21 @@ async def chat_stream(messages: list[dict], user_id: str) -> AsyncGenerator[str,
         for m in messages
     ]
 
+    system_prompt = SYSTEM_PROMPT_LEARNING if learning_mode else SYSTEM_PROMPT_NORMAL
+    tools = TOOLS if learning_mode else None
+
     while True:
         # Create streaming response
-        with client.messages.stream(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            tools=TOOLS,
-            messages=claude_messages
-        ) as stream:
+        stream_kwargs = {
+            "model": "claude-sonnet-4-20250514",
+            "max_tokens": 4096,
+            "system": system_prompt,
+            "messages": claude_messages
+        }
+        if tools:
+            stream_kwargs["tools"] = tools
+
+        with client.messages.stream(**stream_kwargs) as stream:
             full_response = ""
             tool_use_block = None
             current_tool_input = ""

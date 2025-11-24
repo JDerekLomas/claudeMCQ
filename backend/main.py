@@ -46,7 +46,7 @@ async def chat(request: ChatRequest):
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
     return EventSourceResponse(
-        chat_stream(messages, request.user_id),
+        chat_stream(messages, request.user_id, request.learning_mode),
         media_type="text/event-stream"
     )
 

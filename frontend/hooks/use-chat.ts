@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Sidebar } from '@/components/sidebar/sidebar';
-import { ChatInterface } from '@/components/chat/chat-interface';
 import { ChatMessage } from '@/types';
 import { streamChat } from '@/lib/api';
-import { Menu } from 'lucide-react';
 
 interface Chat {
   id: string;
@@ -14,34 +11,35 @@ interface Chat {
   messages: ChatMessage[];
 }
 
-export default function Home() {
+export function useChat(userId: string = 'default') {
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [learningMode, setLearningMode] = useState(true);
-  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const userId = 'default';
+  const activeChat = chats.find((c) => c.id === activeChatId);
 
-  const handleNewChat = useCallback(() => {
-    setActiveChatId(null);
+  const createNewChat = useCallback(() => {
+    const newChat: Chat = {
+      id: crypto.randomUUID(),
+      title: 'New conversation',
+      timestamp: new Date(),
+      messages: [],
+    };
+    setChats((prev) => [newChat, ...prev]);
+    setActiveChatId(newChat.id);
     setMessages([]);
-    setMobileMenuOpen(false);
   }, []);
 
-  const handleSelectChat = useCallback((chatId: string) => {
+  const selectChat = useCallback((chatId: string) => {
     const chat = chats.find((c) => c.id === chatId);
     if (chat) {
       setActiveChatId(chatId);
       setMessages(chat.messages);
     }
-    setMobileMenuOpen(false);
   }, [chats]);
 
-  const handleDeleteChat = useCallback((chatId: string) => {
+  const deleteChat = useCallback((chatId: string) => {
     setChats((prev) => prev.filter((c) => c.id !== chatId));
     if (activeChatId === chatId) {
       setActiveChatId(null);
@@ -49,7 +47,7 @@ export default function Home() {
     }
   }, [activeChatId]);
 
-  const handleSendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, learningMode: boolean = true) => {
     // Create new chat if none exists
     let currentChatId = activeChatId;
     if (!currentChatId) {
@@ -113,56 +111,16 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, activeChatId, userId, learningMode]);
+  }, [messages, activeChatId, userId]);
 
-  return (
-    <div className="flex h-full">
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setMobileMenuOpen(true)}
-        className="fixed left-4 top-3 z-50 rounded-lg bg-bg-sidebar p-2 text-white md:hidden"
-      >
-        <Menu size={20} />
-      </button>
-
-      {/* Mobile overlay */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 transform transition-transform md:relative md:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <Sidebar
-          chats={chats}
-          activeChatId={activeChatId}
-          learningMode={learningMode}
-          isCollapsed={sidebarCollapsed}
-          onNewChat={handleNewChat}
-          onSelectChat={handleSelectChat}
-          onDeleteChat={handleDeleteChat}
-          onToggleLearningMode={() => setLearningMode(!learningMode)}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
-      </div>
-
-      {/* Chat Interface */}
-      <div className="flex-1">
-        <ChatInterface
-          messages={messages}
-          isLoading={isLoading}
-          selectedModel={selectedModel}
-          userId={userId}
-          onSendMessage={handleSendMessage}
-          onSelectModel={setSelectedModel}
-        />
-      </div>
-    </div>
-  );
+  return {
+    chats,
+    activeChatId,
+    messages,
+    isLoading,
+    createNewChat,
+    selectChat,
+    deleteChat,
+    sendMessage,
+  };
 }

@@ -11,6 +11,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     user_id: str = "default"
+    learning_mode: bool = True
 
 
 class ScoreRequest(BaseModel):
