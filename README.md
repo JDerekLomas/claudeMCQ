@@ -1,10 +1,30 @@
-# MCQ Learning Chat
+# MCQ Learning Chat - Claude.ai Clone
 
-An interactive chat interface with Claude that renders multiple-choice assessments as interactive buttons. Claude assesses understanding before teaching new concepts.
+A pixel-perfect Claude.ai clone demonstrating a "Learning Mode" feature concept. When enabled, Claude assesses understanding with interactive MCQs before teaching new concepts.
+
+## Current State
+
+### Completed
+- **Claude.ai UI Clone**: Dark sidebar, warm stone chat area, styled messages
+- **Sidebar**: Logo, chat history (grouped by date), Learning Mode toggle, user menu
+- **Chat Interface**: Model selector, streaming messages, typing indicator
+- **MCQ Components**: Radio button options, correct/incorrect states, explanation reveal
+- **Backend API**: FastAPI with Claude tool use, SSE streaming, SQLite/Turso database
+- **Learning Mode Toggle**: Switches between assessment-first and normal Claude behavior
+- **Mobile Responsive**: Collapsible sidebar with hamburger menu
+
+### What Remains
+- [ ] Persist chat history to database (currently in-memory only)
+- [ ] User authentication
+- [ ] Learner profile modal (view mastery across objectives)
+- [ ] Dark mode support
+- [ ] More seed data / content authoring UI
+- [ ] Production deployment configuration
+- [ ] Unit and integration tests
 
 ## Stack
 
-- **Frontend**: Next.js 14, App Router, Tailwind CSS, shadcn/ui components
+- **Frontend**: Next.js 14, App Router, Tailwind CSS, Lucide icons
 - **Backend**: FastAPI (Python)
 - **Database**: Turso (libsql) / SQLite for local development
 - **AI**: Claude claude-sonnet-4-20250514 via Anthropic SDK with tool use
@@ -12,11 +32,12 @@ An interactive chat interface with Claude that renders multiple-choice assessmen
 
 ## Features
 
-- Assessment-first pedagogy: Claude checks understanding before explaining
-- Interactive MCQ blocks rendered inline in chat
-- Immediate feedback with explanations and misconception tagging
-- Learner progress tracking across objectives
-- Streaming responses for real-time interaction
+- **Assessment-first pedagogy**: Claude checks understanding before explaining
+- **Interactive MCQ blocks**: Rendered inline with immediate feedback
+- **Misconception tagging**: Shows common errors when learner answers incorrectly
+- **Learner progress tracking**: Mastery levels stored per objective
+- **Streaming responses**: Real-time character-by-character display
+- **Learning Mode toggle**: Switch between teaching and normal chat modes
 
 ## Quick Start
 
@@ -28,36 +49,20 @@ An interactive chat interface with Claude that renders multiple-choice assessmen
 
 ### Local Development
 
-1. **Clone and setup backend:**
+1. **Setup backend:**
 
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-2. **Configure environment:**
-
-```bash
-# backend/.env
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
-```
-
-3. **Seed the database:**
-
-```bash
 python seed.py
-```
-
-4. **Run backend:**
-
-```bash
 uvicorn main:app --reload
 ```
 
-5. **Setup frontend (new terminal):**
+2. **Setup frontend (new terminal):**
 
 ```bash
 cd frontend
@@ -66,19 +71,14 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-6. **Open http://localhost:3000**
+3. **Open http://localhost:3000**
 
 ### Using Docker
 
 ```bash
-# Set your Anthropic API key
 export ANTHROPIC_API_KEY=your-key-here
-
-# Start services
 docker-compose up
-
-# Seed database (first time only)
-docker-compose exec backend python seed.py
+docker-compose exec backend python seed.py  # First time only
 ```
 
 ## Project Structure
@@ -86,40 +86,56 @@ docker-compose exec backend python seed.py
 ```
 /frontend (Next.js)
   /app
-    page.tsx          # Main chat page
-    layout.tsx        # Root layout
-    globals.css       # Global styles
+    page.tsx              # Main app with sidebar + chat
+    layout.tsx            # Root layout
+    globals.css           # Claude.ai design system
   /components
-    chat-interface.tsx   # Main chat container
-    chat-messages.tsx    # Message list with auto-scroll
-    chat-input.tsx       # Text input with send button
-    mcq-block.tsx        # Interactive MCQ rendering
-    learner-profile.tsx  # Progress modal
+    /sidebar
+      sidebar.tsx         # Main sidebar container
+      claude-logo.tsx     # Sparkle logo icon
+      chat-list.tsx       # Chat history grouped by date
+      learning-mode-toggle.tsx
+      user-menu.tsx       # Profile dropdown
+    /chat
+      chat-interface.tsx  # Main chat area
+      chat-input.tsx      # Message input with send button
+      message.tsx         # Message wrapper
+      user-message.tsx    # Right-aligned dark bubble
+      claude-message.tsx  # Left-aligned with icon
+      claude-icon.tsx     # Amber sparkle SVG
+      model-selector.tsx  # Dropdown for model selection
+    /mcq
+      mcq-block.tsx       # MCQ container with state machine
+      mcq-option.tsx      # Radio button options
+      mcq-explanation.tsx # Explanation with lightbulb icon
   /lib
-    parse-mcq.ts      # MCQ markdown parser
-    api.ts            # API client functions
-    utils.ts          # Utility functions
+    parse-mcq.ts          # Parse ?mcq blocks from responses
+    api.ts                # Backend API client with streaming
+    utils.ts              # cn() classname utility
+  /hooks
+    use-chat.ts           # Chat state management
   /types
-    index.ts          # TypeScript types
+    index.ts              # TypeScript interfaces
 
 /backend (FastAPI)
-  main.py             # FastAPI endpoints
-  db.py               # Database operations
-  models.py           # Pydantic models
-  claude_client.py    # Claude API with tools
-  seed.py             # Database seeding
-  requirements.txt    # Python dependencies
+  main.py                 # API endpoints
+  db.py                   # Database operations (Turso/SQLite)
+  models.py               # Pydantic models
+  claude_client.py        # Claude API with tools
+  seed.py                 # Seed 10 MCQ items
+  requirements.txt
 ```
 
 ## API Endpoints
 
 ### POST /chat
-Stream chat response with Claude, handling MCQ tool calls.
+Stream chat response with Claude. Supports learning mode toggle.
 
 ```json
 {
   "messages": [{"role": "user", "content": "Explain recursion"}],
-  "user_id": "default"
+  "user_id": "default",
+  "learning_mode": true
 }
 ```
 
@@ -141,13 +157,33 @@ Get learner's mastery levels across objectives.
 ### POST /items
 Create a new assessment item.
 
+### GET /objectives
+List all available learning objectives.
+
+## Design System
+
+```css
+/* Colors */
+--bg-main: #f5f5f4;          /* Warm stone background */
+--bg-sidebar: #1a1a1a;        /* Dark sidebar */
+--bg-user-msg: #1a1a1a;       /* User message bubble */
+--accent-primary: #d97706;    /* Anthropic amber */
+--mcq-correct: #16a34a;       /* Green for correct */
+--mcq-incorrect: #dc2626;     /* Red for incorrect */
+
+/* Typography */
+Font: Styrene A (fallback to system)
+Base size: 15px
+Line height: 1.6
+```
+
 ## MCQ Block Format
 
-Claude outputs MCQs in this markdown format, which the frontend parses:
+Claude outputs MCQs in this format when Learning Mode is enabled:
 
 ```
-?mcq id="abc123" objective="recursion"
-What is a base case?
+?mcq id="abc123" objective="recursion-base-case"
+What is a base case in recursion?
 - (a) First function call
 - (b) Condition that stops recursion
 - (c) The recursive step
@@ -157,51 +193,21 @@ What is a base case?
 ?misconception:a "Confusing invocation with termination"
 ```
 
-## Database Schema
+## Seed Data
 
-```sql
--- Assessment items
-CREATE TABLE items (
-  id TEXT PRIMARY KEY,
-  stem TEXT NOT NULL,
-  options TEXT NOT NULL,  -- JSON array
-  correct_answer TEXT NOT NULL,
-  explanation TEXT,
-  objective TEXT NOT NULL,
-  difficulty REAL DEFAULT 0.5,
-  misconceptions TEXT,    -- JSON object
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Learner responses
-CREATE TABLE responses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT DEFAULT 'default',
-  item_id TEXT REFERENCES items(id),
-  selected TEXT,
-  correct INTEGER,
-  response_time_ms INTEGER,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Learner progress
-CREATE TABLE learner_state (
-  user_id TEXT,
-  objective TEXT,
-  mastery REAL DEFAULT 0,
-  attempts INTEGER DEFAULT 0,
-  last_attempt DATETIME,
-  PRIMARY KEY (user_id, objective)
-);
-```
+10 MCQ items across 4 learning objectives:
+- `recursion-base-case` (3 items)
+- `recursion-call-stack` (3 items)
+- `python-lists` (2 items)
+- `javascript-promises` (2 items)
 
 ## Environment Variables
 
 ### Backend (.env)
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-TURSO_DATABASE_URL=libsql://your-db.turso.io
-TURSO_AUTH_TOKEN=your-token
+TURSO_DATABASE_URL=file:local.db
+TURSO_AUTH_TOKEN=
 ```
 
 ### Frontend (.env.local)
@@ -209,17 +215,14 @@ TURSO_AUTH_TOKEN=your-token
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-## Deployment
+## Demo Flow
 
-### Backend (Railway)
-1. Connect your repository
-2. Set environment variables
-3. Deploy from `/backend` directory
-
-### Frontend (Vercel)
-1. Import project
-2. Set `NEXT_PUBLIC_API_URL` to your Railway backend URL
-3. Deploy from `/frontend` directory
+1. Open app - sidebar shows Learning Mode toggle ON
+2. Type "Teach me about recursion"
+3. Claude presents an MCQ first (assesses understanding)
+4. Click an answer
+5. See immediate green/red feedback + explanation
+6. Claude continues teaching based on your response
 
 ## License
 
